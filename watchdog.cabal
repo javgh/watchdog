@@ -1,13 +1,15 @@
 name:           watchdog
-version:        0.1.0
+version:        0.2.0
 author:         Jan Vornberger <jan@uos.de>
 maintainer:     Jan Vornberger <jan@uos.de>
 synopsis:       Simple control structure to re-try an action with exponential backoff
+description:    See Control.Watchdog for documentation.
 build-type:     Simple
 cabal-version:  >= 1.8
 
 library
-    build-depends: base >= 4
-                   , time >= 1.2.0
+    build-depends: base == 4.*
+                   , time == 1.4.*
+                   , mtl == 2.1.*
     exposed-modules: Control.Watchdog
     ghc-options: -O -Wall
