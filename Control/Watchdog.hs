@@ -95,6 +95,7 @@ module Control.Watchdog
     , defaultLogger
     , silentLogger
     , formatWatchdogError
+    , WatchdogLogger
     ) where
 
 import Control.Concurrent
@@ -105,7 +106,7 @@ data WatchdogState = WatchdogState { wcInitialDelay :: Int
                                    , wcMaximumDelay :: Int
                                    , wcResetDuration :: Int
                                    , wcMaximumRetries :: Integer
-                                   , wcLoggingAction :: String -> Maybe Int -> IO ()
+                                   , wcLoggingAction :: WatchdogLogger
                                    }
 
 data WatchdogTaskStatus a = FailedImmediately String
@@ -114,6 +115,11 @@ data WatchdogTaskStatus a = FailedImmediately String
 
 newtype WatchdogAction a = WA { runWA :: StateT WatchdogState IO a }
                            deriving (Monad, MonadIO, MonadState WatchdogState)
+
+-- | Type synonym for a watchdog logger.
+type WatchdogLogger = String     -- ^ Error message returned by the task.
+                    -> Maybe Int -- ^ Waiting time - if any - before trying again.
+                    -> IO ()
 
 defaultConf :: WatchdogState
 defaultConf = WatchdogState { wcInitialDelay = 1 * 10 ^ (6::Integer)
@@ -161,11 +167,11 @@ setMaximumRetries retries = do
     put conf { wcMaximumRetries = retries }
 
 -- | Set the logging action that will be called by the watchdog. The supplied
--- function will be provided with the error message of the task and either
--- 'Nothing' if the watchdog will retry immediately or 'Just delay' if the
--- watchdog will now pause for the specified amount of time before trying again.
--- The default is 'defaultLogger'.
-setLoggingAction :: (String -> Maybe Int -> IO ()) -> WatchdogAction ()
+-- function of type 'WatchdogLogger' will be provided with the error message of
+-- the task and either 'Nothing' if the watchdog will retry immediately or 'Just
+-- delay' if the watchdog will now pause for the specified amount of time before
+-- trying again.  The default is 'defaultLogger'.
+setLoggingAction :: WatchdogLogger -> WatchdogAction ()
 setLoggingAction f = do
     conf <- get
     put conf { wcLoggingAction = f }
@@ -230,11 +236,11 @@ watchImpatiently task = do
 
 -- | The default logging action. It will call 'formatWatchdogError' and display
 -- the result on STDOUT.
-defaultLogger :: String -> Maybe Int -> IO ()
+defaultLogger :: WatchdogLogger
 defaultLogger taskErr delay = putStrLn $ formatWatchdogError taskErr delay
 
 -- | Disable logging by passing this function to 'setLoggingAction'.
-silentLogger :: String -> Maybe Int -> IO ()
+silentLogger :: WatchdogLogger
 silentLogger _ _ = return ()
 
 -- | Format the watchdog status report. Will produce output like this:
