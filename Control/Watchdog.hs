@@ -96,6 +96,7 @@ module Control.Watchdog
     , silentLogger
     , formatWatchdogError
     , WatchdogLogger
+    , WatchdogAction
     ) where
 
 import Control.Concurrent
