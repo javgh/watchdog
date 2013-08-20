@@ -9,7 +9,10 @@ cabal-version:  >= 1.8
 
 library
     build-depends: base == 4.*
+                   -- Wheezy: 4.5.0.0 (ghc)
                    , time == 1.4.*
+                     -- Wheezy: 1.4.1 (ghc)
                    , mtl == 2.1.*
+                     -- Wheezy: 2.1.1 (libghc-mtl-dev)
     exposed-modules: Control.Watchdog
     ghc-options: -O -Wall
