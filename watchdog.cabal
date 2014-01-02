@@ -8,6 +8,10 @@ build-type:     Simple
 cabal-version:  >= 1.8
 license:        BSD3
 
+source-repository head
+    type: git
+    location: https://github.com/javgh/watchdog
+
 library
     build-depends: base == 4.*
                    -- Wheezy: 4.5.0.0 (ghc)
