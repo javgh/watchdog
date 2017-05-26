@@ -1,7 +1,7 @@
 name:           watchdog
-version:        0.2.2.1
+version:        0.2.3
 author:         Jan Vornberger <jan@uos.de>
-copyright:      (c) 2012 - 2014 Jan Vornberger
+copyright:      (c) 2012 - 2017 Jan Vornberger
 maintainer:     Jan Vornberger <jan@uos.de>
 synopsis:       Simple control structure to re-try an action with exponential backoff
 description:    See Control.Watchdog for documentation.
