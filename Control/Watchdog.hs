@@ -99,6 +99,7 @@ module Control.Watchdog
     , WatchdogAction
     ) where
 
+import Control.Applicative
 import Control.Concurrent
 import Control.Monad.State.Strict
 import Data.Time
@@ -115,7 +116,8 @@ data WatchdogTaskStatus a = FailedImmediately String
                           | CompletedSuccessfully a
 
 newtype WatchdogAction a = WA { runWA :: StateT WatchdogState IO a }
-                           deriving (Monad, MonadIO, MonadState WatchdogState)
+                           deriving ( Functor, Applicative, Alternative
+                                    , Monad, MonadIO, MonadState WatchdogState)
 
 -- | Type synonym for a watchdog logger.
 type WatchdogLogger = String     -- ^ Error message returned by the task.
