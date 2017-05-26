@@ -1,6 +1,6 @@
 -- |
 -- How to use:
--- 
+--
 -- > import Control.Watchdog
 -- > import Data.Time
 -- >
@@ -104,11 +104,11 @@ import Control.Concurrent
 import Control.Monad.State.Strict
 import Data.Time
 
-data WatchdogState = WatchdogState { wcInitialDelay :: Int
-                                   , wcMaximumDelay :: Int
-                                   , wcResetDuration :: Int
+data WatchdogState = WatchdogState { wcInitialDelay   :: Int
+                                   , wcMaximumDelay   :: Int
+                                   , wcResetDuration  :: Int
                                    , wcMaximumRetries :: Integer
-                                   , wcLoggingAction :: WatchdogLogger
+                                   , wcLoggingAction  :: WatchdogLogger
                                    }
 
 data WatchdogTaskStatus a = FailedImmediately String
@@ -276,7 +276,7 @@ timeTask resetDuration task = do
     stop <- getCurrentTime
     case status of
         Right result -> return $ CompletedSuccessfully result
-        Left err -> 
+        Left err ->
             let cutOff = fromIntegral resetDuration / 10 ^ (6 :: Integer)
             in if diffUTCTime stop start < cutOff
                         then return $ FailedImmediately err
