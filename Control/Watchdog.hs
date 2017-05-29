@@ -85,6 +85,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Control.Watchdog
     ( watchdog
+    , watchdogBlank
     , watch
     , watchImpatiently
     , setInitialDelay
@@ -93,6 +94,7 @@ module Control.Watchdog
     , setResetDuration
     , setLoggingAction
     , defaultLogger
+    , showLogger
     , silentLogger
     , formatWatchdogError
     , WatchdogLogger
@@ -104,41 +106,52 @@ import Control.Concurrent
 import Control.Monad.State.Strict
 import Data.Time
 
-data WatchdogState = WatchdogState { wcInitialDelay   :: Int
-                                   , wcMaximumDelay   :: Int
-                                   , wcResetDuration  :: Int
-                                   , wcMaximumRetries :: Integer
-                                   , wcLoggingAction  :: WatchdogLogger
-                                   }
+data WatchdogState e = WatchdogState { wcInitialDelay   :: Int
+                                     , wcMaximumDelay   :: Int
+                                     , wcResetDuration  :: Int
+                                     , wcMaximumRetries :: Integer
+                                     , wcLoggingAction  :: WatchdogLogger e
+                                     }
 
-data WatchdogTaskStatus a = FailedImmediately String
-                          | FailedAfterAWhile String
-                          | CompletedSuccessfully a
+data WatchdogTaskStatus e a = FailedImmediately e
+                            | FailedAfterAWhile e
+                            | CompletedSuccessfully a
 
-newtype WatchdogAction a = WA { runWA :: StateT WatchdogState IO a }
-                           deriving ( Functor, Applicative, Alternative
-                                    , Monad, MonadIO, MonadState WatchdogState)
+newtype WatchdogAction e a = WA { runWA :: StateT (WatchdogState e) IO a }
+                             deriving ( Functor, Applicative, Alternative
+                                      , Monad, MonadIO, MonadState (WatchdogState e))
 
 -- | Type synonym for a watchdog logger.
-type WatchdogLogger = String     -- ^ Error message returned by the task.
-                    -> Maybe Int -- ^ Waiting time - if any - before trying again.
-                    -> IO ()
+type WatchdogLogger e = e          -- ^ Error value returned by the task.
+                      -> Maybe Int -- ^ Waiting time - if any - before trying again.
+                      -> IO ()
 
-defaultConf :: WatchdogState
-defaultConf = WatchdogState { wcInitialDelay = 1 * 10 ^ (6::Integer)
-                            , wcMaximumDelay = 300 * 10 ^ (6::Integer)
-                            , wcMaximumRetries = 10
-                            , wcResetDuration = 30 * 10 ^ (6::Integer)
-                            , wcLoggingAction = defaultLogger
-                            }
+defaultConf :: WatchdogState String
+defaultConf = blankConf { wcLoggingAction = defaultLogger }
+
+blankConf :: WatchdogState e
+blankConf = WatchdogState { wcInitialDelay   = 1 * 10 ^ (6::Integer)
+                          , wcMaximumDelay   = 300 * 10 ^ (6::Integer)
+                          , wcMaximumRetries = 10
+                          , wcResetDuration  = 30 * 10 ^ (6::Integer)
+                          , wcLoggingAction  = silentLogger
+                          }
 
 -- | The Watchdog monad. Used to configure and eventually run a watchdog.
-watchdog :: WatchdogAction a -> IO a
-watchdog action = evalStateT (runWA action) defaultConf
+watchdog :: WatchdogAction String a -> IO a
+watchdog = watchdogWith defaultConf
+
+-- | As with 'watchdog', but don't specify a default logging action to
+--   allow it to be polymorphic.
+watchdogBlank :: WatchdogAction e a -> IO a
+watchdogBlank = watchdogWith blankConf
+
+watchdogWith :: WatchdogState e -> WatchdogAction e a -> IO a
+watchdogWith conf action = evalStateT (runWA action) conf
 
 -- | Set the initial delay in microseconds. The first time the watchdog pauses
 -- will be for this amount of time. The default is 1 second.
-setInitialDelay :: Int -> WatchdogAction ()
+setInitialDelay :: Int -> WatchdogAction e ()
 setInitialDelay delay = do
     conf <- get
     put conf { wcInitialDelay = delay }
@@ -146,7 +159,7 @@ setInitialDelay delay = do
 -- | Set the maximum delay in microseconds. When a task fails to execute
 -- properly multiple times in quick succession, the delay is doubled each time
 -- until it stays constant at the maximum delay. The default is 300 seconds.
-setMaximumDelay :: Int -> WatchdogAction ()
+setMaximumDelay :: Int -> WatchdogAction e ()
 setMaximumDelay delay = do
     conf <- get
     put conf { wcMaximumDelay = delay }
@@ -156,7 +169,7 @@ setMaximumDelay delay = do
 -- back to the initial delay. This function sets the amount of time in
 -- microseconds that needs to pass before the watchdog will consider a task to
 -- be successfully running. The default is 30 seconds.
-setResetDuration :: Int -> WatchdogAction ()
+setResetDuration :: Int -> WatchdogAction e ()
 setResetDuration duration = do
     conf <- get
     put conf { wcResetDuration = duration }
@@ -164,7 +177,7 @@ setResetDuration duration = do
 -- | Set the number of retries after which the watchdog will give up and
 -- return with a permanent error. This setting is only used in combination with
 -- 'watchImpatiently'. The default is 10.
-setMaximumRetries :: Integer -> WatchdogAction ()
+setMaximumRetries :: Integer -> WatchdogAction e ()
 setMaximumRetries retries = do
     conf <- get
     put conf { wcMaximumRetries = retries }
@@ -174,7 +187,7 @@ setMaximumRetries retries = do
 -- the task and either 'Nothing' if the watchdog will retry immediately or 'Just
 -- delay' if the watchdog will now pause for the specified amount of time before
 -- trying again.  The default is 'defaultLogger'.
-setLoggingAction :: WatchdogLogger -> WatchdogAction ()
+setLoggingAction :: WatchdogLogger e -> WatchdogAction e ()
 setLoggingAction f = do
     conf <- get
     put conf { wcLoggingAction = f }
@@ -183,7 +196,7 @@ setLoggingAction f = do
 -- result. The task should return an 'Either', where 'Left' in combination with
 -- an error message signals an error and 'Right' with an arbitrary result
 -- signals success.
-watch :: IO (Either String a) -> WatchdogAction a
+watch :: IO (Either e a) -> WatchdogAction e a
 watch task = do
     conf <- get
     liftIO $ go conf (wcInitialDelay conf)
@@ -209,12 +222,18 @@ watch task = do
 -- | Watch a task, but only restart it a limited number of times (see
 -- 'setMaximumRetries'). If the failure persists, it will be returned as a 'Left',
 -- otherwise it will be 'Right' with the result of the task.
-watchImpatiently :: IO (Either String b) -> WatchdogAction (Either String b)
+watchImpatiently :: IO (Either e b) -> WatchdogAction e (Either e b)
 watchImpatiently task = do
     conf <- get
-    liftIO $ go conf 0 "" (wcInitialDelay conf)
+    liftIO $ do
+      status <- timeTask (wcResetDuration conf) task
+      tryOnce <- case status of
+                   CompletedSuccessfully result -> return $ Right result
+                   FailedAfterAWhile err        -> return $ Left err
+                   FailedImmediately err        -> return $ Left err
+      either (go conf 1 (wcInitialDelay conf)) (return . Right) tryOnce
   where
-    go conf retries lastError errorDelay = do
+    go conf retries errorDelay lastError = do
         status <- timeTask (wcResetDuration conf) task
         case status of
             CompletedSuccessfully result -> return $ Right result
@@ -225,7 +244,7 @@ watchImpatiently task = do
                         let errorDelay' = wcInitialDelay conf
                             loggingAction = wcLoggingAction conf
                         loggingAction err Nothing
-                        go conf (retries + 1) err errorDelay'
+                        go conf (retries + 1) errorDelay' err
             FailedImmediately err ->
                 if retries >= wcMaximumRetries conf
                     then return $ Left lastError
@@ -235,15 +254,19 @@ watchImpatiently task = do
                             loggingAction = wcLoggingAction conf
                         loggingAction err (Just errorDelay)
                         threadDelay errorDelay
-                        go conf (retries + 1) err errorDelay'
+                        go conf (retries + 1) errorDelay' err
 
 -- | The default logging action. It will call 'formatWatchdogError' and display
 -- the result on STDOUT.
-defaultLogger :: WatchdogLogger
+defaultLogger :: WatchdogLogger String
 defaultLogger taskErr delay = putStrLn $ formatWatchdogError taskErr delay
 
+-- | As with 'defaultLogger', but calls 'show' on the value provided.
+showLogger :: (Show e) => WatchdogLogger e
+showLogger err = defaultLogger (show err)
+
 -- | Disable logging by passing this function to 'setLoggingAction'.
-silentLogger :: WatchdogLogger
+silentLogger :: WatchdogLogger e
 silentLogger _ _ = return ()
 
 -- | Format the watchdog status report. Will produce output like this:
@@ -269,7 +292,7 @@ formatWatchdogError taskErr (Just delay) =
 -- result signals success. In case of failure, the wrapper will check whether
 -- the function ran less than 30 seconds and then return 'FailedImmediately'
 -- or 'FailedAfterAWhile' accordingly.
-timeTask :: Int -> IO (Either String a) -> IO (WatchdogTaskStatus a)
+timeTask :: Int -> IO (Either e a) -> IO (WatchdogTaskStatus e a)
 timeTask resetDuration task = do
     start <- getCurrentTime
     status <- task
