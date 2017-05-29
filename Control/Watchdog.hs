@@ -152,17 +152,13 @@ watchdogWith conf action = evalStateT (runWA action) conf
 -- | Set the initial delay in microseconds. The first time the watchdog pauses
 -- will be for this amount of time. The default is 1 second.
 setInitialDelay :: Int -> WatchdogAction e ()
-setInitialDelay delay = do
-    conf <- get
-    put conf { wcInitialDelay = delay }
+setInitialDelay delay = modify (\conf -> conf { wcInitialDelay = delay })
 
 -- | Set the maximum delay in microseconds. When a task fails to execute
 -- properly multiple times in quick succession, the delay is doubled each time
 -- until it stays constant at the maximum delay. The default is 300 seconds.
 setMaximumDelay :: Int -> WatchdogAction e ()
-setMaximumDelay delay = do
-    conf <- get
-    put conf { wcMaximumDelay = delay }
+setMaximumDelay delay = modify (\conf -> conf { wcMaximumDelay = delay })
 
 -- | If a task has been running for some time, the watchdog will consider
 -- the next failure to be something unrelated and reset the waiting time
@@ -170,17 +166,13 @@ setMaximumDelay delay = do
 -- microseconds that needs to pass before the watchdog will consider a task to
 -- be successfully running. The default is 30 seconds.
 setResetDuration :: Int -> WatchdogAction e ()
-setResetDuration duration = do
-    conf <- get
-    put conf { wcResetDuration = duration }
+setResetDuration duration = modify (\conf -> conf { wcResetDuration = duration })
 
 -- | Set the number of retries after which the watchdog will give up and
 -- return with a permanent error. This setting is only used in combination with
 -- 'watchImpatiently'. The default is 10.
 setMaximumRetries :: Integer -> WatchdogAction e ()
-setMaximumRetries retries = do
-    conf <- get
-    put conf { wcMaximumRetries = retries }
+setMaximumRetries retries = modify (\conf -> conf { wcMaximumRetries = retries })
 
 -- | Set the logging action that will be called by the watchdog. The supplied
 -- function of type 'WatchdogLogger' will be provided with the error message of
@@ -188,9 +180,7 @@ setMaximumRetries retries = do
 -- delay' if the watchdog will now pause for the specified amount of time before
 -- trying again.  The default is 'defaultLogger'.
 setLoggingAction :: WatchdogLogger e -> WatchdogAction e ()
-setLoggingAction f = do
-    conf <- get
-    put conf { wcLoggingAction = f }
+setLoggingAction f = modify (\conf -> conf { wcLoggingAction = f })
 
 -- | Watch a task, restarting it potentially forever or until it returns with a
 -- result. The task should return an 'Either', where 'Left' in combination with
