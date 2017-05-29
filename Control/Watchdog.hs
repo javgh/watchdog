@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- |
 -- How to use:
 --
@@ -104,6 +105,8 @@ module Control.Watchdog
 import Control.Applicative
 import Control.Concurrent
 import Control.Monad.State.Strict
+import Data.Monoid                ((<>))
+import Data.String                (IsString, fromString)
 import Data.Time
 
 data WatchdogState e = WatchdogState { wcInitialDelay   :: Int
@@ -265,16 +268,17 @@ silentLogger _ _ = return ()
 -- Watchdog: Error executing task (some error) - trying again immediately.
 -- Watchdog: Error executing task (some error) - waiting 1s before trying again.
 -- @
-formatWatchdogError :: String -- ^ Error message returned by the task.
-                    -> Maybe Int -- ^ Waiting time - if any - before trying again.
-                    -> String
+formatWatchdogError :: (IsString str, Monoid str)
+                       => str       -- ^ Error message returned by the task.
+                       -> Maybe Int -- ^ Waiting time - if any - before trying again.
+                       -> str
 formatWatchdogError taskErr Nothing =
-    "Watchdog: Error executing task (" ++ taskErr ++ ") - trying again immediately."
+    "Watchdog: Error executing task (" <> taskErr <> ") - trying again immediately."
 formatWatchdogError taskErr (Just delay) =
     let asNominalDiffTime :: NominalDiffTime    -- just to display it properly
         asNominalDiffTime = fromIntegral delay / 10 ^ (6 :: Integer)
-    in "Watchdog: Error executing task (" ++ taskErr ++ ") - waiting"
-        ++ " " ++ show asNominalDiffTime ++ " before trying again."
+    in "Watchdog: Error executing task (" <> taskErr <> ") - waiting"
+        <> " " <> fromString (show asNominalDiffTime) <> " before trying again."
 
 -- | Helper class which can be wrapped around a task.
 -- The task should return an 'Either', where Left in combination
