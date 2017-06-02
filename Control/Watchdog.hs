@@ -218,36 +218,30 @@ watch task = do
 watchImpatiently :: IO (Either e b) -> WatchdogAction e (Either e b)
 watchImpatiently task = do
     conf <- get
-    liftIO $ do
-      status <- timeTask (wcResetDuration conf) task
-      tryOnce <- case status of
-                   CompletedSuccessfully result -> return $ Right result
-                   FailedAfterAWhile err        -> return $ Left err
-                   FailedImmediately err        -> return $ Left err
-      either (go conf 1 (wcInitialDelay conf)) (return . Right) tryOnce
+    liftIO $ go conf 0 (wcInitialDelay conf)
   where
-    go conf retries errorDelay lastError = do
+    go conf retries errorDelay = do
         status <- timeTask (wcResetDuration conf) task
         case status of
             CompletedSuccessfully result -> return $ Right result
             FailedAfterAWhile err ->
                 if retries >= wcMaximumRetries conf
-                    then return $ Left lastError
+                    then return $ Left err
                     else do
                         let errorDelay' = wcInitialDelay conf
                             loggingAction = wcLoggingAction conf
                         loggingAction err Nothing
-                        go conf (retries + 1) errorDelay' err
+                        go conf (retries + 1) errorDelay'
             FailedImmediately err ->
                 if retries >= wcMaximumRetries conf
-                    then return $ Left lastError
+                    then return $ Left err
                     else do
                         let errorDelay' =
                                 min (errorDelay * 2) (wcMaximumDelay conf)
                             loggingAction = wcLoggingAction conf
                         loggingAction err (Just errorDelay)
                         threadDelay errorDelay
-                        go conf (retries + 1) errorDelay' err
+                        go conf (retries + 1) errorDelay'
 
 -- | The default logging action. It will call 'formatWatchdogError' and display
 -- the result on STDOUT.
