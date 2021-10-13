@@ -17,8 +17,8 @@ source-repository head
     location: https://github.com/javgh/watchdog
 
 library
-    build-depends: base >= 4.8 && < 5
-                   , time >= 1.4 && < 1.9
+    build-depends: base >= 4.9 && < 5
+                   , time >= 1.4 && < 1.13
                    , mtl >= 2.1 && < 2.3
     exposed-modules: Control.Watchdog
     ghc-options: -Wall

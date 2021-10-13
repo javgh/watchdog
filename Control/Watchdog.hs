@@ -105,7 +105,7 @@ module Control.Watchdog
 import Control.Applicative
 import Control.Concurrent
 import Control.Monad.State.Strict
-import Data.Monoid                ((<>))
+import Data.Semigroup             (Semigroup, (<>))
 import Data.String                (IsString, fromString)
 import Data.Time
 
@@ -262,7 +262,7 @@ silentLogger _ _ = return ()
 -- Watchdog: Error executing task (some error) - trying again immediately.
 -- Watchdog: Error executing task (some error) - waiting 1s before trying again.
 -- @
-formatWatchdogError :: (IsString str, Monoid str)
+formatWatchdogError :: (IsString str, Semigroup str)
                        => str       -- ^ Error message returned by the task.
                        -> Maybe Int -- ^ Waiting time - if any - before trying again.
                        -> str
