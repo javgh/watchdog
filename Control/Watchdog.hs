@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 -- |
 -- How to use:
@@ -105,9 +106,11 @@ module Control.Watchdog
 import Control.Applicative
 import Control.Concurrent
 import Control.Monad.State.Strict
+#if !MIN_VERSION_base(4,9,0)
 import Data.Monoid                ((<>))
+#endif
 import Data.String                (IsString, fromString)
-import Data.Time
+import Data.Time                  (NominalDiffTime, diffUTCTime, getCurrentTime)
 
 data WatchdogState e = WatchdogState { wcInitialDelay   :: Int
                                      , wcMaximumDelay   :: Int
