@@ -19,7 +19,7 @@ source-repository head
 library
     build-depends: base >= 4.9 && < 5
                    , time >= 1.4 && < 1.13
-                   , mtl >= 2.1 && < 2.3
+                   , mtl >= 2.1 && < 2.4
     exposed-modules: Control.Watchdog
     ghc-options: -Wall
     default-language: Haskell98
